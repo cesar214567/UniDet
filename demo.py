@@ -7,10 +7,12 @@ import time
 import cv2
 import sys
 import tqdm
-
+import numpy as np
+import shutil
 from detectron2.config import get_cfg
 from detectron2.data.detection_utils import read_image
 from detectron2.utils.logger import setup_logger
+from PIL import Image
 
 from unidet.predictor import UnifiedVisualizationDemo
 from unidet.config import add_unidet_config
@@ -22,6 +24,7 @@ WINDOW_NAME = "Unified detections"
 def setup_cfg(args):
     # load config from file and command-line arguments
     cfg = get_cfg()
+    cfg.MODEL.DEVICE='cpu'
     add_unidet_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
@@ -30,6 +33,7 @@ def setup_cfg(args):
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = args.confidence_threshold
     cfg.MODEL.PANOPTIC_FPN.COMBINE.INSTANCES_CONFIDENCE_THRESH = args.confidence_threshold
     cfg.freeze()
+    
     return cfg
 
 
@@ -80,8 +84,18 @@ if __name__ == "__main__":
     cfg = setup_cfg(args)
 
     demo = UnifiedVisualizationDemo(cfg)
-
+    print(demo.metadata.thing_classes)
+    counter = 0
+    #demo.export_onnx_model()
     if args.input:
+        if (args.output):
+            columns=np.array(['ALB','BET', 'DOL', 'LAG', 'OTHER', 'SHARK', 'YFT','missing'])
+            for folder in columns: 
+                try:
+                    shutil.rmtree(f'{args.output}{folder}')
+                    os.mkdir(f'{args.output}{folder}')
+                except:
+                    os.mkdir(f'{args.output}{folder}')
         if len(args.input) == 1:
             args.input = glob.glob(os.path.expanduser(args.input[0]))
             assert args.input, "The input path(s) was not found"
@@ -99,16 +113,30 @@ if __name__ == "__main__":
                     time.time() - start_time,
                 )
             )
+            if len(predictions['instances'])>0: 
+                logger.info(predictions['instances'])
+                logger.info(predictions['instances'][0].pred_boxes)
+                logger.info(predictions['instances'][0].pred_classes)
 
             if args.output:
-                if os.path.isdir(args.output):
-                    assert os.path.isdir(args.output), args.output
-                    out_filename = os.path.join(args.output, os.path.basename(path))
-                else:
-                    assert len(args.input) == 1, "Please specify a directory with args.output"
-                    out_filename = args.output
-                visualized_output.save(out_filename)
-            else:
+                
+                if len(predictions['instances'])>0: 
+                    instances = predictions['instances']
+                    for bounding_box,label,score in zip(instances.pred_boxes,instances.pred_classes,instances.scores): 
+                        text_label =demo.metadata.thing_classes[label]
+                        print(bounding_box,text_label,score)
+                        if 'Fish' in text_label or 'Animal' in text_label:
+                            new_path = f'{args.output}{path.split("/")[4]}/{counter}.jpg'
+                            print(new_path)
+                            print(bounding_box,text_label,score)
+                            counter+=1
+                            temp_img = Image.fromarray(img)
+                            temp_img = temp_img.crop(tuple(bounding_box.numpy()))
+                            #temp_img.show()
+                            temp_img.save(new_path)
+                        
+                
+            else:       
                 cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
                 cv2.imshow(WINDOW_NAME, visualized_output.get_image()[:, :, ::-1])
                 if cv2.waitKey(0) == 27:

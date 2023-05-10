@@ -8,12 +8,12 @@ from collections import deque
 import cv2
 import torch
 import json
-
+import os
 from detectron2.data import MetadataCatalog
 from detectron2.engine.defaults import DefaultPredictor
 from detectron2.utils.video_visualizer import VideoVisualizer
 from detectron2.utils.visualizer import ColorMode, Visualizer
-
+from detectron2.data.detection_utils import read_image
 
 class UnifiedVisualizationDemo(object):
     def __init__(self, cfg, instance_mode=ColorMode.IMAGE, parallel=False):
@@ -24,6 +24,7 @@ class UnifiedVisualizationDemo(object):
             parallel (bool): whether to run the model in different processes from visualization.
                 Useful since the visualization logic can be slow.
         """
+        self.cfg = cfg
         self.metadata = MetadataCatalog.get("__unused")
         unified_label_file = json.load(open(cfg.MULTI_DATASET.UNIFIED_LABEL_FILE))
         self.metadata.thing_classes = [
