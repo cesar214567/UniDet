@@ -113,24 +113,39 @@ if __name__ == "__main__":
                     time.time() - start_time,
                 )
             )
-            if len(predictions['instances'])>0: 
-                logger.info(predictions['instances'])
-                logger.info(predictions['instances'][0].pred_boxes)
-                logger.info(predictions['instances'][0].pred_classes)
+            #if len(predictions['instances'])>0: 
+            #    logger.info(predictions['instances'])
+            #    logger.info(predictions['instances'][0].pred_boxes)
+            #    logger.info(predictions['instances'][0].pred_classes)
 
             if args.output:
                 
+
                 if len(predictions['instances'])>0: 
                     instances = predictions['instances']
                     for bounding_box,label,score in zip(instances.pred_boxes,instances.pred_classes,instances.scores): 
                         text_label =demo.metadata.thing_classes[label]
-                        print(bounding_box,text_label,score)
+                        #logger.info(bounding_box,text_label,score)
                         if 'Fish' in text_label or 'Animal' in text_label:
                             new_path = f'{args.output}{path.split("/")[4]}/{counter}.jpg'
-                            print(new_path)
-                            print(bounding_box,text_label,score)
+                            logger.info(new_path)
+                            #logger.info(bounding_box,text_label,score)
                             counter+=1
                             temp_img = Image.fromarray(img)
+                            b, g, r = temp_img.split()
+                            temp_img = Image.merge("RGB", (r, g, b))
+                            #img = img[:,:,::-1]
+                            #temp_img = Image.fromarray(img)
+
+                            [x,y,x_max,y_max] = bounding_box.numpy()
+                            x_diff = x_max - x
+                            y_diff = y_max - y
+                            bounding_box[0] = max(0,x-x_diff*0.15)
+                            bounding_box[1] = max(0,y-y_diff*0.15)
+                            bounding_box[2] = min(img.shape[1],x_max+x_diff*0.3)
+                            bounding_box[3] = min(img.shape[0],y_max+y_diff*0.3)
+                            
+                            #logger.info(', '.join(map(str,int([x,y,x_max,y_max]))))
                             temp_img = temp_img.crop(tuple(bounding_box.numpy()))
                             #temp_img.show()
                             temp_img.save(new_path)
